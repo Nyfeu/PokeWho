@@ -2,51 +2,88 @@ import sys
 import requests
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QGridLayout, QLabel, QPushButton, QTextEdit, 
-                             QFrame, QGraphicsOpacityEffect, QGraphicsDropShadowEffect)
+                             QFrame, QGraphicsOpacityEffect, QGraphicsDropShadowEffect,
+                             QSplitter)
 from PyQt6.QtGui import QPixmap, QFont, QColor, QTextCursor
 from PyQt6.QtCore import Qt, QTimer
 
+TYPE_COLORS = {
+    'normal': '#6B7280', 'fire': '#EF4444', 'water': '#3B82F6', 'electric': '#EAB308',
+    'grass': '#22C55E', 'ice': '#06B6D4', 'fighting': '#DC2626', 'poison': '#9333EA',
+    'ground': '#D97706', 'flying': '#8B5CF6', 'psychic': '#D946EF', 'bug': '#84CC16',
+    'rock': '#B45309', 'ghost': '#4C1D95', 'dragon': '#1D4ED8', 'dark': '#111827',
+    'steel': '#475569', 'fairy': '#EC4899'
+}
+
 STYLESHEET = """
-    QMainWindow { background-color: #DC0A2D; }
+    QMainWindow { background-color: #0B1120; }
     
-    QFrame#LenteAzul { border-radius: 30px; border: 4px solid #E2E8F0; }
+    /* Barra Lateral Esquerda */
+    QFrame#Sidebar { background-color: #DC0A2D; border-right: 4px solid #991B1B; }
+    
+    QFrame#LenteAzul { 
+        background-color: qradialgradient(cx:0.3, cy:0.3, radius:0.8, fx:0.2, fy:0.2, stop:0 #FFFFFF, stop:0.1 #93C5FD, stop:0.5 #2563EB, stop:1 #1E3A8A);
+        border-radius: 35px; border: 4px solid #E2E8F0; border-bottom: 6px solid #94A3B8;
+    }
+    
     QFrame#LedVermelho { background-color: qradialgradient(cx:0.3, cy:0.3, radius: 1, fx:0.3, fy:0.3, stop:0 #FCA5A5, stop:1 #991B1B); border-radius: 8px; border: 1px solid #7F1D1D; }
     QFrame#LedAmarelo { background-color: qradialgradient(cx:0.3, cy:0.3, radius: 1, fx:0.3, fy:0.3, stop:0 #FDE047, stop:1 #B45309); border-radius: 8px; border: 1px solid #78350F; }
     QFrame#LedVerde { background-color: qradialgradient(cx:0.3, cy:0.3, radius: 1, fx:0.3, fy:0.3, stop:0 #6EE7B7, stop:1 #065F46); border-radius: 8px; border: 1px solid #064E3B; }
 
-    QFrame#GridScreen { background-color: #111827; border-radius: 10px; border: 15px solid #E5E7EB; border-bottom: 30px solid #E5E7EB; }
-    
-    QFrame#Card { background-color: #1F2937; border-radius: 8px; border: 2px solid #374151; }
-    QFrame#Card:hover { border: 2px solid #9CA3AF; background-color: #374151; }
-    QFrame#Card[selecionado="true"] { border: 3px solid #FBBF24; background-color: #2D3748; }
-    
-    QLabel { color: #F8FAFC; } 
-    
-    QFrame#Panel { background-color: #DC0A2D; border-left: 4px solid #991B1B; }
-    QFrame#HudAlvo { background-color: #111827; border-radius: 8px; border: 4px solid #E5E7EB; }
-    QFrame#HudAlvo QLabel { color: #4ADE80; font-family: Consolas; } 
+    QLabel#VerticalText { color: #FCA5A5; font-family: Consolas; font-weight: bold; font-size: 14px; letter-spacing: 5px; }
 
-    QTextEdit { background-color: #064E3B; color: #A7F3D0; border: 4px solid #E5E7EB; border-radius: 5px; padding: 5px; font-family: Consolas; font-size: 13px; }
+    /* Área do Tabuleiro */
+    QFrame#GridWrapper { background-color: #0B1120; }
+    QFrame#GridScreen { background-color: transparent; }
     
-    QScrollBar:vertical { border: none; background: #064E3B; width: 14px; margin: 0px; }
-    QScrollBar::handle:vertical { background: #10B981; min-height: 30px; border-radius: 7px; }
-    QScrollBar::handle:vertical:hover { background: #34D399; }
+    QFrame#Card { background-color: #111827; border-radius: 12px; border: 2px solid #1E293B; }
+    QFrame#Card:hover { border: 2px solid #3B82F6; background-color: #1E293B; }
+    QFrame#Card[selecionado="true"] { border: 2px solid #4ADE80; background-color: #064E3B; }
+    
+    QLabel { color: #F8FAFC; font-family: Consolas, "Courier New", monospace; } 
+    
+    /* Painel Direito (Coluna Inteira Vermelha) */
+    QFrame#Panel { background-color: #DC0A2D; border-left: 4px solid #991B1B; }
+    
+    QLabel#TituloPanel { color: #FFFFFF; font-family: Arial; font-weight: bold; font-size: 18px; }
+    QLabel#SubTituloPanel { color: #FCA5A5; font-family: Arial; font-size: 11px; font-weight: bold; }
+    QLabel#LblTerm { color: #FFFFFF; font-family: Arial; font-weight: bold; font-size: 12px; }
+    
+    /* HUD Alvo (Tela Branca da Pokédex) */
+    QFrame#HudAlvo { 
+        background-color: #F8FAFC; 
+        border-radius: 12px; 
+        border: 4px solid #CBD5E1; 
+    }
+    
+    /* Terminal */
+    QTextEdit { 
+        background-color: #111827; color: #E2E8F0; border: 4px solid #0F172A; 
+        border-radius: 12px; padding: 15px; font-size: 13px; line-height: 1.5;
+    }
+    
+    /* Splitter (Divisória Redimensionável) */
+    QSplitter::handle:horizontal { background-color: #0B1120; width: 6px; }
+    QSplitter::handle:horizontal:hover { background-color: #3B82F6; }
+
+    QScrollBar:vertical { border: none; background: transparent; width: 8px; margin: 0px; }
+    QScrollBar::handle:vertical { background: #334155; border-radius: 4px; }
+    QScrollBar::handle:vertical:hover { background: #475569; }
     QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { border: none; background: none; height: 0px; }
     QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }
 
-    QPushButton { border-radius: 8px; font-weight: bold; font-size: 16px; color: white; border: 2px solid #111827; }
-    QPushButton#BtnSim { background-color: #10B981; border-bottom: 4px solid #047857; }
-    QPushButton#BtnSim:pressed { background-color: #059669; border-bottom: 0px; margin-top: 4px; }
-    QPushButton#BtnNao { background-color: #EF4444; border-bottom: 4px solid #B91C1C; }
-    QPushButton#BtnNao:pressed { background-color: #DC2626; border-bottom: 0px; margin-top: 4px; }
+    QPushButton { border-radius: 25px; font-weight: bold; font-size: 16px; color: white; border: none; }
+    QPushButton#BtnSim { background-color: #10B981; }
+    QPushButton#BtnSim:hover { background-color: #059669; }
+    QPushButton#BtnNao { background-color: #EF4444; }
+    QPushButton#BtnNao:hover { background-color: #DC2626; }
     
-    QPushButton#BtnSubmit { background-color: #FBBF24; color: #111827; border-bottom: 4px solid #D97706; }
+    QPushButton#BtnSubmit { background-color: #FBBF24; color: #111827; border-radius: 12px; }
     QPushButton#BtnSubmit:hover { background-color: #FCD34D; }
-    QPushButton#BtnSubmit:pressed { background-color: #FBBF24; border-bottom: 0px; margin-top: 4px; }
-    QPushButton#BtnSubmit:disabled { background-color: #4B5563; color: #9CA3AF; border-bottom: 2px solid #374151; }
+    QPushButton#BtnSubmit:disabled { background-color: #1E293B; color: #475569; }
     
-    QPushButton#BtnReiniciar { background-color: #3B82F6; border-bottom: 4px solid #1D4ED8; }
-    QPushButton#BtnReiniciar:pressed { background-color: #2563EB; border-bottom: 0px; margin-top: 4px; }
+    QPushButton#BtnReiniciar { background-color: #3B82F6; border-radius: 12px; }
+    QPushButton#BtnReiniciar:hover { background-color: #2563EB; }
 """
 
 class PokemonCard(QFrame):
@@ -56,25 +93,41 @@ class PokemonCard(QFrame):
         self.parent_gui = parent_gui
         self.pixmap = pixmap
         self.setObjectName("Card")
-        self.setFixedSize(180, 215)
+        self.setFixedSize(175, 230)
         self.setProperty("selecionado", "false")
         self.setup_ui()
 
     def setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.setSpacing(5)
         
         self.lbl_img = QLabel()
-        self.lbl_img.setPixmap(self.pixmap.scaled(90, 90, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        self.lbl_img.setPixmap(self.pixmap.scaled(85, 85, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         self.lbl_img.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.lbl_img)
         
         self.lbl_nome = QLabel(self.pokemon['nome'].upper())
-        self.lbl_nome.setFont(QFont("Consolas", 11, QFont.Weight.Bold))
+        self.lbl_nome.setFont(QFont("Consolas", 12, QFont.Weight.Bold))
         self.lbl_nome.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.lbl_nome)
         
-        tags_html = f"<div style='color: #9CA3AF; font-size: 10px; text-align: center;'><b>Tipo:</b> {self.pokemon['tipo'].upper()} | <b>Cor:</b> {self.pokemon['cor'].upper()}<br><b>Form:</b> {self.pokemon['formato'].title()}<br><b>Hab:</b> {self.pokemon['habitat'].title()} | <b>Lend:</b> {self.pokemon['lendario'].title()}</div>"
+        type_str = self.pokemon['tipo'].lower()
+        cor_badge = TYPE_COLORS.get(type_str, '#475569')
+        self.lbl_badge = QLabel(type_str.upper())
+        self.lbl_badge.setStyleSheet(f"background-color: {cor_badge}; color: white; border-radius: 10px; padding: 2px 10px; font-size: 10px; font-weight: bold;")
+        self.lbl_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_badge.setFixedHeight(20)
+        layout.addWidget(self.lbl_badge, alignment=Qt.AlignmentFlag.AlignHCenter)
+        
+        tags_html = f"""
+        <div style='color: #64748B; font-size: 10px; text-align: center; line-height: 1.4;'>
+            <span style='color:#94A3B8;'>COR</span> {self.pokemon['cor'].upper()}<br>
+            <span style='color:#94A3B8;'>FORM</span> {self.pokemon['formato'].title()}<br>
+            <span style='color:#94A3B8;'>HAB</span> {self.pokemon['habitat'].title()}<br>
+            <span style='color:#94A3B8;'>LEND</span> {self.pokemon['lendario'].title()}
+        </div>
+        """
         lbl_tags = QLabel(tags_html)
         layout.addWidget(lbl_tags)
 
@@ -92,137 +145,201 @@ class CaraACaraGUI(QMainWindow):
         self.fato_atual = None
         self.cards_ui = []
         self.cartas_baixadas = [False] * len(pokemons)
-        
         self.estado_interface = "SELECAO"
         self.card_selecionado_temp = None
         self.secreto_jogador = None
 
-        self.setWindowTitle("Pokédex - Diagnóstico de IA Simbólica")
+        self.setWindowTitle("Pokédex - Sistema de Diagnóstico Simbólico")
         self.setFixedSize(1300, 850)
         self.setStyleSheet(STYLESHEET)
         
-        self.led_state = True
-        self.timer_led = QTimer(self)
-        self.timer_led.timeout.connect(self.animar_led)
-        self.timer_led.start(800)
+        self.led_lente_state = True
+        self.timer_lente = QTimer(self)
+        self.timer_lente.timeout.connect(self.animar_lente)
+        self.timer_lente.start(1000)
+        
+        self.led_red_state = True
+        self.timer_red = QTimer(self)
+        self.timer_red.timeout.connect(self.animar_led_vermelho)
+        self.timer_red.start(400)
+        
+        self.led_yellow_state = True
+        self.timer_yellow = QTimer(self)
+        self.timer_yellow.timeout.connect(self.animar_led_amarelo)
+        self.timer_yellow.start(750)
+        
+        self.led_green_state = True
+        self.timer_green = QTimer(self)
+        self.timer_green.timeout.connect(self.animar_led_verde)
+        self.timer_green.start(1200)
         
         self.setup_ui()
         self.show()
         
-        self.escrever_log("MODO DE SELEÇÃO ATIVO.", "#FCD34D")
-        self.escrever_log("Clique no seu Pokémon secreto diretamente no tabuleiro à esquerda e clique em 'CONFIRMAR SELEÇÃO'.", "#FCD34D")
+        self.escrever_log("Pokédex iniciada e pronta para uso.", "sistema")
+        self.escrever_log("Selecione o seu Pokémon secreto no tabuleiro e confirme.", "alerta")
 
-    def animar_led(self):
+    def animar_lente(self):
         lente = self.findChild(QFrame, "LenteAzul")
         if lente:
-            if self.led_state:
-                lente.setStyleSheet("background-color: qradialgradient(cx:0.3, cy:0.3, radius: 1, fx:0.3, fy:0.3, stop:0 #BFDBFE, stop:1 #3B82F6); border-radius: 30px; border: 4px solid #FFFFFF;")
+            if self.led_lente_state:
+                lente.setStyleSheet("background-color: qradialgradient(cx:0.3, cy:0.3, radius:0.8, fx:0.2, fy:0.2, stop:0 #BFDBFE, stop:1 #3B82F6); border-radius: 35px; border: 4px solid #FFFFFF; border-bottom: 6px solid #94A3B8;")
             else:
-                lente.setStyleSheet("background-color: qradialgradient(cx:0.3, cy:0.3, radius: 1, fx:0.3, fy:0.3, stop:0 #93C5FD, stop:1 #1E3A8A); border-radius: 30px; border: 4px solid #E2E8F0;")
-        self.led_state = not self.led_state
+                lente.setStyleSheet("background-color: qradialgradient(cx:0.3, cy:0.3, radius:0.8, fx:0.2, fy:0.2, stop:0 #FFFFFF, stop:0.1 #93C5FD, stop:0.5 #2563EB, stop:1 #1E3A8A); border-radius: 35px; border: 4px solid #E2E8F0; border-bottom: 6px solid #94A3B8;")
+        self.led_lente_state = not self.led_lente_state
+
+    def animar_led_vermelho(self):
+        led = self.findChild(QFrame, "LedVermelho")
+        if led:
+            if self.led_red_state:
+                led.setStyleSheet("background-color: qradialgradient(cx:0.3, cy:0.3, radius: 1, fx:0.3, fy:0.3, stop:0 #FCA5A5, stop:1 #991B1B); border-radius: 8px; border: 1px solid #7F1D1D;")
+            else:
+                led.setStyleSheet("background-color: #450a0a; border-radius: 8px; border: 1px solid #220505;")
+        self.led_red_state = not self.led_red_state
+
+    def animar_led_amarelo(self):
+        led = self.findChild(QFrame, "LedAmarelo")
+        if led:
+            if self.led_yellow_state:
+                led.setStyleSheet("background-color: qradialgradient(cx:0.3, cy:0.3, radius: 1, fx:0.3, fy:0.3, stop:0 #FDE047, stop:1 #B45309); border-radius: 8px; border: 1px solid #78350F;")
+            else:
+                led.setStyleSheet("background-color: #422006; border-radius: 8px; border: 1px solid #281304;")
+        self.led_yellow_state = not self.led_yellow_state
+
+    def animar_led_verde(self):
+        led = self.findChild(QFrame, "LedVerde")
+        if led:
+            if self.led_green_state:
+                led.setStyleSheet("background-color: qradialgradient(cx:0.3, cy:0.3, radius: 1, fx:0.3, fy:0.3, stop:0 #6EE7B7, stop:1 #065F46); border-radius: 8px; border: 1px solid #064E3B;")
+            else:
+                led.setStyleSheet("background-color: #022c22; border-radius: 8px; border: 1px solid #011611;")
+        self.led_green_state = not self.led_green_state
 
     def setup_ui(self):
         widget_central = QWidget()
         self.setCentralWidget(widget_central)
-        main_layout = QVBoxLayout(widget_central)
-        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout = QHBoxLayout(widget_central)
+        main_layout.setContentsMargins(0, 0, 0, 0) # Sangria total
+        main_layout.setSpacing(0)
         
-        header_frame = QFrame()
-        header_frame.setFixedHeight(80)
-        header_layout = QHBoxLayout(header_frame)
-        header_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        # --- BARRA LATERAL VERMELHA ---
+        sidebar = QFrame()
+        sidebar.setObjectName("Sidebar")
+        sidebar.setFixedWidth(100)
+        side_layout = QVBoxLayout(sidebar)
+        side_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        side_layout.setContentsMargins(10, 30, 10, 30)
         
-        lente_azul = QFrame(); lente_azul.setObjectName("LenteAzul"); lente_azul.setFixedSize(60, 60)
+        lente_azul = QFrame(); lente_azul.setObjectName("LenteAzul"); lente_azul.setFixedSize(70, 70)
+        side_layout.addWidget(lente_azul, alignment=Qt.AlignmentFlag.AlignHCenter)
+        side_layout.addSpacing(20)
+        
+        leds_layout = QVBoxLayout()
+        leds_layout.setSpacing(8)
+        leds_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         led1 = QFrame(); led1.setObjectName("LedVermelho"); led1.setFixedSize(16, 16)
         led2 = QFrame(); led2.setObjectName("LedAmarelo"); led2.setFixedSize(16, 16)
         led3 = QFrame(); led3.setObjectName("LedVerde"); led3.setFixedSize(16, 16)
+        leds_layout.addWidget(led1); leds_layout.addWidget(led2); leds_layout.addWidget(led3)
+        side_layout.addLayout(leds_layout)
         
-        header_layout.addWidget(lente_azul)
-        header_layout.addWidget(led1, alignment=Qt.AlignmentFlag.AlignTop)
-        header_layout.addWidget(led2, alignment=Qt.AlignmentFlag.AlignTop)
-        header_layout.addWidget(led3, alignment=Qt.AlignmentFlag.AlignTop)
-        main_layout.addWidget(header_frame)
+        side_layout.addSpacing(50)
+        lbl_vert = QLabel("P\nO\nK\nÉ\nD\nE\nX")
+        lbl_vert.setObjectName("VerticalText")
+        lbl_vert.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        side_layout.addWidget(lbl_vert)
         
-        body_layout = QHBoxLayout()
+        main_layout.addWidget(sidebar)
+        
+        # --- SPLITTER (REDIMENSIONAMENTO HORIZONTAL) ---
+        body_splitter = QSplitter(Qt.Orientation.Horizontal)
+        
+        # 1. Container do Grid (Lado Esquerdo do Splitter)
+        grid_wrapper = QFrame()
+        grid_wrapper.setObjectName("GridWrapper")
+        grid_wrapper.setMinimumWidth(500)
+        wrapper_layout = QVBoxLayout(grid_wrapper)
+        wrapper_layout.setContentsMargins(30, 30, 30, 30) # Margem interna do grid
+        
         self.grid_container = QFrame()
         self.grid_container.setObjectName("GridScreen")
         grid_layout = QGridLayout(self.grid_container)
-        grid_layout.setSpacing(10)
+        grid_layout.setSpacing(8)
         
         for i, p in enumerate(self.pokemons):
             pixmap = self.baixar_imagem(p['url_img'])
             card = PokemonCard(p, self, pixmap)
-            
-            sombra = QGraphicsDropShadowEffect()
-            sombra.setBlurRadius(15)
-            sombra.setXOffset(0)
-            sombra.setYOffset(5)
-            sombra.setColor(QColor(0, 0, 0, 150))
-            card.setGraphicsEffect(sombra)
-            
             grid_layout.addWidget(card, i // 4, i % 4)
             self.cards_ui.append(card)
             
-        body_layout.addWidget(self.grid_container, stretch=2)
+        wrapper_layout.addWidget(self.grid_container)
+        body_splitter.addWidget(grid_wrapper)
         
+        # 2. Container do Painel Direito (Lado Direito do Splitter)
         panel_container = QFrame()
         panel_container.setObjectName("Panel")
-        panel_container.setFixedWidth(450)
+        panel_container.setMinimumWidth(350)
         panel_layout = QVBoxLayout(panel_container)
-        panel_layout.setContentsMargins(20, 0, 20, 20)
+        panel_layout.setContentsMargins(25, 25, 25, 25) # Margem interna para respirar
         
-        lbl_titulo = QLabel("DIAGNÓSTICO POKÉMON")
-        lbl_titulo.setFont(QFont("Arial", 16, QFont.Weight.Black))
-        lbl_titulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_titulo = QLabel("SISTEMA ESPECIALISTA")
+        lbl_titulo.setObjectName("TituloPanel")
         panel_layout.addWidget(lbl_titulo)
         
+        lbl_sub = QLabel("DIAGNÓSTICO POR INFERÊNCIA PROGRESSIVA")
+        lbl_sub.setObjectName("SubTituloPanel")
+        panel_layout.addWidget(lbl_sub)
+        panel_layout.addSpacing(15)
+        
+        # HUD DO ALVO (BRANCO)
         self.hud_alvo = QFrame()
         self.hud_alvo.setObjectName("HudAlvo")
-        # AUMENTADO PARA 180px PARA CABER TODO O TEXTO SEM CORTAR
-        self.hud_alvo.setFixedHeight(180) 
+        self.hud_alvo.setFixedHeight(170)
         hud_layout = QHBoxLayout(self.hud_alvo)
         
         self.lbl_img_alvo = QLabel()
-        self.lbl_img_alvo.setFixedSize(90, 90) # Imagem levemente reduzida para abrir espaço
+        self.lbl_img_alvo.setFixedSize(90, 90) 
         self.lbl_img_alvo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         hud_layout.addWidget(self.lbl_img_alvo)
         
-        self.lbl_info_alvo = QLabel("Selecione um card...")
-        self.lbl_info_alvo.setFont(QFont("Consolas", 10, QFont.Weight.Bold)) # Fonte levemente reduzida (10pt)
+        self.lbl_info_alvo = QLabel("<span style='color:#64748B;'>Aguardando Alvo...</span>")
         hud_layout.addWidget(self.lbl_info_alvo)
         panel_layout.addWidget(self.hud_alvo)
         
-        lbl_term = QLabel("PROCESSADOR DE INFERÊNCIA")
-        lbl_term.setFont(QFont("Arial", 10, QFont.Weight.Bold))
-        lbl_term.setStyleSheet("margin-top: 10px;")
+        panel_layout.addSpacing(15)
+        lbl_term = QLabel("ANÁLISE LOG")
+        lbl_term.setObjectName("LblTerm")
         panel_layout.addWidget(lbl_term)
         
         self.terminal = QTextEdit()
         self.terminal.setReadOnly(True)
         panel_layout.addWidget(self.terminal, stretch=1)
+        panel_layout.addSpacing(15)
         
         self.btn_layout = QHBoxLayout()
+        self.btn_layout.setSpacing(15)
+        
         self.btn_sim = QPushButton("SIM")
         self.btn_sim.setObjectName("BtnSim")
-        self.btn_sim.setFixedHeight(60)
+        self.btn_sim.setFixedHeight(50)
         self.btn_sim.clicked.connect(lambda: self.processar_resposta(True))
         self.btn_sim.hide() 
         
         self.btn_nao = QPushButton("NÃO")
         self.btn_nao.setObjectName("BtnNao")
-        self.btn_nao.setFixedHeight(60)
+        self.btn_nao.setFixedHeight(50)
         self.btn_nao.clicked.connect(lambda: self.processar_resposta(False))
         self.btn_nao.hide() 
         
-        self.btn_submit = QPushButton("CONFIRMAR SELEÇÃO")
+        self.btn_submit = QPushButton("CONFIRMAR ALVO")
         self.btn_submit.setObjectName("BtnSubmit")
-        self.btn_submit.setFixedHeight(60)
+        self.btn_submit.setFixedHeight(50)
         self.btn_submit.setEnabled(False)
         self.btn_submit.clicked.connect(self.confirmar_alvo_tabuleiro)
         
         self.btn_reiniciar = QPushButton("JOGAR NOVAMENTE")
         self.btn_reiniciar.setObjectName("BtnReiniciar")
-        self.btn_reiniciar.setFixedHeight(60)
+        self.btn_reiniciar.setFixedHeight(50)
         self.btn_reiniciar.clicked.connect(self.reiniciar_jogo)
         self.btn_reiniciar.hide()
         
@@ -232,8 +349,10 @@ class CaraACaraGUI(QMainWindow):
         panel_layout.addWidget(self.btn_submit)
         panel_layout.addWidget(self.btn_reiniciar)
         
-        body_layout.addWidget(panel_container, stretch=1)
-        main_layout.addLayout(body_layout)
+        body_splitter.addWidget(panel_container)
+        body_splitter.setSizes([850, 450]) # Tamanhos iniciais proporcionais
+        
+        main_layout.addWidget(body_splitter, stretch=1)
 
     def baixar_imagem(self, url):
         try:
@@ -243,8 +362,28 @@ class CaraACaraGUI(QMainWindow):
             return pixmap
         except: return QPixmap()
 
-    def escrever_log(self, texto, cor="#A7F3D0"):
-        self.terminal.append(f"<span style='color: {cor};'>> {texto}</span>")
+    def escrever_log(self, texto, tipo="info"):
+        cores = {
+            "sistema": "#38BDF8",  
+            "pergunta": "#F87171", 
+            "usuario": "#94A3B8",  
+            "alerta": "#FBBF24",   
+            "sucesso": "#4ADE80",  
+            "erro": "#EF4444",     
+            "info": "#475569"      
+        }
+        
+        prefixos = {
+            "sistema": "[SYS]", "pergunta": "[S.E.]", "usuario": "[I/O]", 
+            "alerta": "[WARN]", "sucesso": "[OK]", "erro": "[ERR]", "info": ">>>"
+        }
+        
+        cor = cores.get(tipo, "#FFFFFF")
+        prefixo = prefixos.get(tipo, ">>>")
+        
+        negrito = "font-weight: bold;" if tipo in ["sucesso", "erro", "alerta"] else "font-weight: normal;"
+        
+        self.terminal.append(f"<span style='color: {cor}; {negrito}'>{prefixo} {texto}</span>")
         self.terminal.moveCursor(QTextCursor.MoveOperation.End)
 
     def controlar_clique_card(self, card_component):
@@ -261,9 +400,12 @@ class CaraACaraGUI(QMainWindow):
             
             self.lbl_img_alvo.setPixmap(card_component.pixmap.scaled(85, 85, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
             p = card_component.pokemon
-            info = f"PREVIEW:\nNOME: {p['nome']}\nTIPO: {p['tipo'].upper()}\nCOR : {p['cor'].upper()}"
-            self.lbl_info_alvo.setText(info)
             
+            info = f"<span style='color:#DC2626; font-size:11px; font-weight:bold;'>ALVO SELECIONADO</span><br><br>" \
+                   f"<b style='color:#0F172A; font-size:15px;'>{p['nome'].upper()}</b><br>" \
+                   f"<span style='color:#334155; font-size:12px;'>Tipo: {p['tipo'].title()}<br>" \
+                   f"Cor: {p['cor'].title()}</span>"
+            self.lbl_info_alvo.setText(info)
             self.btn_submit.setEnabled(True)
 
     def confirmar_alvo_tabuleiro(self):
@@ -277,16 +419,24 @@ class CaraACaraGUI(QMainWindow):
         self.card_selecionado_temp.style().polish(self.card_selecionado_temp)
         
         p = self.secreto_jogador
-        info = f"ALVO CONFIRMADO:\nNOME: {p['nome']}\nTIPO: {p['tipo'].upper()}\nCOR : {p['cor'].upper()}\nFORM: {p['formato'].title()}\nHAB : {p['habitat'].title()}\nLEND: {p['lendario'].upper()}"
+        
+        info = f"<span style='color:#059669; font-size:11px; font-weight:bold;'>ALVO CONFIRMADO</span><br><br>" \
+               f"<b style='color:#0F172A; font-size:15px;'>{p['nome'].upper()}</b><br>" \
+               f"<span style='color:#334155; font-size:12px;'>" \
+               f"Tipo: {p['tipo'].title()}<br>" \
+               f"Cor: {p['cor'].title()}<br>" \
+               f"Formato: {p['formato'].title()}<br>" \
+               f"Habitat: {p['habitat'].title()}<br>" \
+               f"Lendário: {p['lendario'].title()}</span>"
         self.lbl_info_alvo.setText(info)
         
         self.btn_submit.hide()
         self.btn_sim.show()
         self.btn_nao.show()
         
-        self.escrever_log("Alvo definido com sucesso direto do tabuleiro.", "#4ADE80")
-        self.escrever_log("Sistema Especialista Carregado (Encadeamento Progressivo).", "#FCD34D")
-        self.escrever_log("-----------------------------", "#A7F3D0")
+        self.escrever_log(f"Pokémon confirmado: {p['nome'].upper()}", "sucesso")
+        self.escrever_log("O sistema fará as premissas. Avalie com SIM ou NÃO.", "info")
+        self.escrever_log("-----------------------------", "info")
         
         self.avancar_motor()
 
@@ -294,19 +444,16 @@ class CaraACaraGUI(QMainWindow):
         if not self.fato_atual: return
         
         resp_str = "SIM" if afirmativa else "NÃO"
-        self.escrever_log(f"Sinal do Usuário: {resp_str}", "#FFFFFF")
-        self.escrever_log("-----------------------------", "#059669")
+        self.escrever_log(f"Resposta Sinalizada: {resp_str}", "usuario")
+        self.escrever_log("-----------------------------", "info")
         
         self.motor.registrar_resposta(self.fato_atual, afirmativa)
         
         atributo, valor = self.fato_atual.split("_", 1)
-        
         for i, card in enumerate(self.cards_ui):
             if not self.cartas_baixadas[i]:
-                # NORMALIZAÇÃO AGRESSIVA PARA EVITAR BUGS DE HÍFEN/ESPAÇO
                 val_carta = str(card.pokemon[atributo]).replace("-", "").replace("_", "").replace(" ", "").lower()
                 val_pergunta = valor.replace("-", "").replace("_", "").replace(" ", "").lower()
-                
                 match = (val_carta == val_pergunta)
                 
                 if match != afirmativa:
@@ -314,29 +461,36 @@ class CaraACaraGUI(QMainWindow):
                     efeito = QGraphicsOpacityEffect()
                     efeito.setOpacity(0.15)
                     card.setGraphicsEffect(efeito)
-                    card.setStyleSheet("border: 2px solid #111827;")
+                    card.setStyleSheet("border: 2px solid #0B1120;")
                     
         self.avancar_motor()
 
     def avancar_motor(self):
         if self.motor.diagnosticos:
             diag = self.motor.diagnosticos[0]
-            self.escrever_log(f"DIAGNÓSTICO CONCLUÍDO!", "#FBBF24")
-            self.escrever_log(f">> {diag} <<", "#FFFFFF")
+            self.escrever_log(f"DIAGNÓSTICO CONCLUÍDO!", "sucesso")
+            self.escrever_log(f"{diag}", "sucesso")
             self.btn_sim.hide()
             self.btn_nao.hide()
             self.btn_reiniciar.show()
-            self.timer_led.stop()
+            self.parar_leds()
             return
 
         self.fato_atual, texto = self.motor.obter_proxima_pergunta()
         if self.fato_atual:
-            self.escrever_log(texto, "#A7F3D0")
+            self.escrever_log(texto, "pergunta")
         else:
-            self.escrever_log("ERRO: Base esgotada sem conclusão.", "#EF4444")
+            self.escrever_log("Base esgotada sem conclusão. Tente Novamente.", "erro")
             self.btn_sim.hide()
             self.btn_nao.hide()
             self.btn_reiniciar.show()
+            self.parar_leds()
+            
+    def parar_leds(self):
+        self.timer_lente.stop()
+        self.timer_red.stop()
+        self.timer_yellow.stop()
+        self.timer_green.stop()
 
     def reiniciar_jogo(self):
         if self.callback_restart:
