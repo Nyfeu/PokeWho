@@ -82,19 +82,27 @@ STYLESHEET = """
     QPushButton#BtnReiniciar { background-color: #3B82F6; border-radius: 12px; }
     QPushButton#BtnReiniciar:hover { background-color: #2563EB; }
 
+    /* Painel Embutido de Valores Dinâmicos */
+    QFrame#ContainerValores {
+        background-color: #0B1120; 
+        border-radius: 12px;
+        border: 2px solid #1E293B;
+    }
+
     /* Tags Interativas (Botões de Pergunta do Jogador) */
     QPushButton.TagBtn {
         background-color: #1E293B;
         color: #94A3B8;
         border: 2px solid #0F172A;
         border-radius: 8px;
-        padding: 5px;
+        padding: 8px 5px; 
         font-size: 11px;
         font-family: Consolas;
         font-weight: bold;
     }
     QPushButton.TagBtn:hover {
         border: 2px solid #3B82F6;
+        color: #E2E8F0;
     }
     QPushButton.TagBtn:checked {
         background-color: #3B82F6;
@@ -376,13 +384,13 @@ class CaraACaraGUI(QMainWindow):
         self.painel_jogador = QFrame()
         self.painel_jogador.hide()
         layout_jog = QVBoxLayout(self.painel_jogador)
-        layout_jog.setSpacing(8)
+        layout_jog.setSpacing(10)
         
+        # Título ajustado com cor branca
         lbl_sua_vez = QLabel("SUA VEZ: MONTE SUA PERGUNTA")
-        lbl_sua_vez.setStyleSheet("color: #38BDF8; font-weight: bold; font-size: 12px;")
+        lbl_sua_vez.setStyleSheet("color: #FFFFFF; font-weight: bold; font-size: 13px; margin-bottom: 5px;")
         layout_jog.addWidget(lbl_sua_vez)
         
-        # Variáveis de Estado para as Tags
         self.categoria_selecionada = None
         self.valor_selecionado = None
         self.botoes_categorias = []
@@ -390,6 +398,7 @@ class CaraACaraGUI(QMainWindow):
         
         # 1. Linha de Categorias
         row_categorias = QHBoxLayout()
+        row_categorias.setSpacing(8)
         for cat in ["tipo", "cor", "formato", "habitat", "lendario"]:
             btn = QPushButton(cat.upper())
             btn.setProperty("class", "TagBtn")
@@ -399,20 +408,23 @@ class CaraACaraGUI(QMainWindow):
             self.botoes_categorias.append(btn)
         layout_jog.addLayout(row_categorias)
         
-        # 2. Grid de Valores Dinâmicos
-        self.container_valores = QWidget()
+        # 2. Grid de Valores Dinâmicos (Painel Embutido Escuro)
+        self.container_valores = QFrame()
+        self.container_valores.setObjectName("ContainerValores")
         self.layout_valores = QGridLayout(self.container_valores)
-        self.layout_valores.setContentsMargins(0, 5, 0, 15)
+        self.layout_valores.setContentsMargins(15, 15, 15, 15)
+        self.layout_valores.setSpacing(10)
         layout_jog.addWidget(self.container_valores)
         
+        # Botões de Ação
         self.btn_perguntar = QPushButton("PERGUNTAR À IA")
-        self.btn_perguntar.setStyleSheet("background-color: #3B82F6; border-radius: 12px; height: 35px; font-size: 13px;")
+        self.btn_perguntar.setStyleSheet("background-color: #3B82F6; border-radius: 12px; height: 40px; font-size: 13px; margin-top: 5px;")
         self.btn_perguntar.setEnabled(False) 
         self.btn_perguntar.clicked.connect(self.jogador_pergunta_ia)
         layout_jog.addWidget(self.btn_perguntar)
         
         self.btn_chutar = QPushButton("TENTAR ADIVINHAR (Selecione no Grid)")
-        self.btn_chutar.setStyleSheet("background-color: #8B5CF6; border-radius: 12px; height: 35px; font-size: 13px;")
+        self.btn_chutar.setStyleSheet("background-color: #8B5CF6; border-radius: 12px; height: 40px; font-size: 13px;")
         self.btn_chutar.clicked.connect(self.jogador_tenta_adivinhar)
         layout_jog.addWidget(self.btn_chutar)
         
@@ -439,18 +451,21 @@ class CaraACaraGUI(QMainWindow):
             "alerta": "#FBBF24",   
             "sucesso": "#4ADE80",  
             "erro": "#EF4444",     
-            "info": "#475569"      
+            "info": "#475569",
+            "ia": "#3B82F6"      # <-- NOVA COR: Azul Vibrante
         }
         
         prefixos = {
             "sistema": "[SYS]", "pergunta": "[S.E.]", "usuario": "[I/O]", 
-            "alerta": "[WARN]", "sucesso": "[OK]", "erro": "[ERR]", "info": ">>>"
+            "alerta": "[WARN]", "sucesso": "[OK]", "erro": "[ERR]", "info": ">>>",
+            "ia": "[IA]"         # <-- NOVO PREFIXO
         }
+        
+        # Adicionei "ia" aqui para que as falas dela fiquem em negrito
+        negrito = "font-weight: bold;" if tipo in ["sucesso", "erro", "alerta", "ia"] else "font-weight: normal;"
         
         cor = cores.get(tipo, "#FFFFFF")
         prefixo = prefixos.get(tipo, ">>>")
-        
-        negrito = "font-weight: bold;" if tipo in ["sucesso", "erro", "alerta"] else "font-weight: normal;"
         
         self.terminal.append(f"<span style='color: {cor}; {negrito}'>{prefixo} {texto}</span>")
         self.terminal.moveCursor(QTextCursor.MoveOperation.End)
@@ -522,7 +537,6 @@ class CaraACaraGUI(QMainWindow):
         
         self.escrever_log(f"Seu Pokémon confirmado: {p['nome'].upper()}", "sucesso")
         self.escrever_log("A IA escolheu o Pokémon secreto dela! Que vença o melhor.", "alerta")
-        self.escrever_log("-----------------------------", "info")
         
         self.iniciar_turno_ia()
 
@@ -588,14 +602,13 @@ class CaraACaraGUI(QMainWindow):
         
         if self.motor.diagnosticos:
             diag = self.motor.diagnosticos[0]
-            self.escrever_log(f"A IA VENCEU O JOGO!", "erro")
-            self.escrever_log(f"{diag}", "erro")
+            self.escrever_log(f"A IA VENCEU O JOGO!", "ia")
+            self.escrever_log(f"{diag}", "ia")
             self.finalizar_jogo()
         else:
             self.iniciar_turno_jogador()
 
     def iniciar_turno_jogador(self):
-        self.escrever_log("-----------------------------", "info")
         self.escrever_log("SUA VEZ! Faça uma pergunta ou tente adivinhar.", "alerta")
         self.btn_sim.hide()
         self.btn_nao.hide()
@@ -613,8 +626,7 @@ class CaraACaraGUI(QMainWindow):
         afirmativa = (valor_real.lower() == val.lower())
         
         resp_ia = "SIM!" if afirmativa else "NÃO!"
-        cor_log = "sucesso" if afirmativa else "erro"
-        self.escrever_log(f"IA: {resp_ia}", cor_log)
+        self.escrever_log(f"IA: {resp_ia}", "ia")
         
         for i, card in enumerate(self.cards_ui):
             if not self.cartas_baixadas[i]:
@@ -628,7 +640,6 @@ class CaraACaraGUI(QMainWindow):
                     card.setGraphicsEffect(efeito)
                     card.setStyleSheet("border: 2px solid #0B1120;")
                     
-        self.escrever_log("-----------------------------", "info")
         
         for btn in self.botoes_categorias: btn.setChecked(False)
         self.atualizar_grid_valores(None) 
@@ -645,9 +656,9 @@ class CaraACaraGUI(QMainWindow):
         self.escrever_log(f"Você: O seu Pokémon secreto é o {chute['nome'].upper()}?", "usuario")
         
         if chute['id'] == self.secreto_ia['id']:
-            self.escrever_log("IA: INCRÍVEL! VOCÊ ACERTOU! PARABÉNS, VOCÊ VENCEU!", "sucesso")
+            self.escrever_log("INCRÍVEL! VOCÊ ACERTOU! PARABÉNS, VOCÊ VENCEU!", "ia")
         else:
-            self.escrever_log(f"IA: ERRADO! O meu Pokémon secreto era o {self.secreto_ia['nome'].upper()}. EU VENCI!", "erro")
+            self.escrever_log(f"ERRADO! O meu Pokémon secreto era o {self.secreto_ia['nome'].upper()}. EU VENCI!", "ia")
             
         self.finalizar_jogo()
 
