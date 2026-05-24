@@ -12,13 +12,13 @@ class YamlKnowledgeBuilder:
             f_habitat = f"habitat_{p['habitat']}"
             f_lendario = f"lendario_{p['lendario']}"
             
-            status_lendario = "LENDÁRIO" if p['lendario'] == 'sim' else "COMUM (Não Lendário)"
-            
-            perguntas[f_lendario] = f"O seu Pokémon é classificado como {status_lendario}?"
             perguntas[f_tipo] = f"O seu Pokémon é do tipo {p['tipo'].upper()}?"
             perguntas[f_cor] = f"O seu Pokémon é da cor {p['cor'].upper()}?"
             perguntas[f_formato] = f"O seu Pokémon tem o formato {p['formato'].upper()}?"
             perguntas[f_habitat] = f"O seu Pokémon vive no habitat: {p['habitat'].upper()}?"
+            
+            status_lendario = "LENDÁRIO" if p['lendario'] == 'sim' else "COMUM (Não Lendário)"
+            perguntas[f_lendario] = f"O seu Pokémon é classificado como {status_lendario}?"
             
             regras.append({
                 "se": [f_tipo, f_cor, f_formato, f_habitat, f_lendario],
