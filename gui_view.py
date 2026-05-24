@@ -1,9 +1,10 @@
 import sys
+import random
 import requests
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QGridLayout, QLabel, QPushButton, QTextEdit, 
                              QFrame, QGraphicsOpacityEffect, QGraphicsDropShadowEffect,
-                             QSplitter)
+                             QSplitter, QComboBox)
 from PyQt6.QtGui import QPixmap, QFont, QColor, QTextCursor
 from PyQt6.QtCore import Qt, QTimer
 
@@ -84,6 +85,47 @@ STYLESHEET = """
     
     QPushButton#BtnReiniciar { background-color: #3B82F6; border-radius: 12px; }
     QPushButton#BtnReiniciar:hover { background-color: #2563EB; }
+
+    QComboBox { 
+        background-color: #111827; 
+        color: #E2E8F0; 
+        border: 2px solid #1E293B; 
+        border-radius: 8px; 
+        padding: 5px 15px; 
+        min-height: 30px; 
+        font-family: Consolas;
+        font-size: 13px;
+        font-weight: bold;
+    }
+    
+    QComboBox::drop-down {
+        border: none;
+        width: 30px;
+    }
+    
+    QComboBox::down-arrow {
+        image: none; 
+    }
+
+    /* Remove o border-radius para matar o "troço branco" do fundo da janela */
+    QComboBox QAbstractItemView {
+        background-color: #0F172A; 
+        color: #E2E8F0;
+        border: 2px solid #1E293B; 
+        outline: none; 
+    }
+
+    /* Espaçamento e respiro limpo para as opções */
+    QComboBox QAbstractItemView::item {
+        padding: 8px 10px;
+        min-height: 25px;
+    }
+
+    /* Cor de destaque moderna quando o mouse passa por cima */
+    QComboBox QAbstractItemView::item:selected {
+        background-color: #3B82F6; 
+        color: #FFFFFF;
+    }
 """
 
 class PokemonCard(QFrame):
@@ -148,6 +190,7 @@ class CaraACaraGUI(QMainWindow):
         self.estado_interface = "SELECAO"
         self.card_selecionado_temp = None
         self.secreto_jogador = None
+        self.secreto_ia = None
 
         self.setWindowTitle("Pokédex - Sistema de Diagnóstico Simbólico")
         self.setFixedSize(1300, 850)
@@ -219,7 +262,7 @@ class CaraACaraGUI(QMainWindow):
         widget_central = QWidget()
         self.setCentralWidget(widget_central)
         main_layout = QHBoxLayout(widget_central)
-        main_layout.setContentsMargins(0, 0, 0, 0) # Sangria total
+        main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
         
         # --- BARRA LATERAL VERMELHA ---
@@ -259,7 +302,7 @@ class CaraACaraGUI(QMainWindow):
         grid_wrapper.setObjectName("GridWrapper")
         grid_wrapper.setMinimumWidth(500)
         wrapper_layout = QVBoxLayout(grid_wrapper)
-        wrapper_layout.setContentsMargins(30, 30, 30, 30) # Margem interna do grid
+        wrapper_layout.setContentsMargins(30, 30, 30, 30)
         
         self.grid_container = QFrame()
         self.grid_container.setObjectName("GridScreen")
@@ -275,12 +318,12 @@ class CaraACaraGUI(QMainWindow):
         wrapper_layout.addWidget(self.grid_container)
         body_splitter.addWidget(grid_wrapper)
         
-        # 2. Container do Painel Direito (Lado Direito do Splitter)
+        # 2. Container do Painel Direito (Coluna Inteira Vermelha)
         panel_container = QFrame()
         panel_container.setObjectName("Panel")
         panel_container.setMinimumWidth(350)
         panel_layout = QVBoxLayout(panel_container)
-        panel_layout.setContentsMargins(25, 25, 25, 25) # Margem interna para respirar
+        panel_layout.setContentsMargins(25, 25, 25, 25)
         
         lbl_titulo = QLabel("SISTEMA ESPECIALISTA")
         lbl_titulo.setObjectName("TituloPanel")
@@ -349,8 +392,42 @@ class CaraACaraGUI(QMainWindow):
         panel_layout.addWidget(self.btn_submit)
         panel_layout.addWidget(self.btn_reiniciar)
         
+        # --- PAINEL DO TURNO DO JOGADOR ---
+        self.painel_jogador = QFrame()
+        self.painel_jogador.hide()
+        layout_jog = QVBoxLayout(self.painel_jogador)
+        layout_jog.setSpacing(8)
+        
+        lbl_sua_vez = QLabel("SUA VEZ: FAÇA UMA PERGUNTA")
+        lbl_sua_vez.setStyleSheet("color: #38BDF8; font-weight: bold; font-size: 12px;")
+        layout_jog.addWidget(lbl_sua_vez)
+        
+        row_perg = QHBoxLayout()
+        self.cb_categoria = QComboBox()
+        self.cb_categoria.addItems(["tipo", "cor", "formato", "habitat", "lendario"])
+        
+        self.cb_valor = QComboBox()
+        self.cb_categoria.currentTextChanged.connect(self.atualizar_valores_combo)
+        
+        row_perg.addWidget(self.cb_categoria)
+        row_perg.addWidget(self.cb_valor)
+        layout_jog.addLayout(row_perg)
+        
+        self.btn_perguntar = QPushButton("PERGUNTAR À IA")
+        self.btn_perguntar.setStyleSheet("background-color: #3B82F6; border-radius: 12px; height: 35px; font-size: 13px;")
+        self.btn_perguntar.clicked.connect(self.jogador_pergunta_ia)
+        layout_jog.addWidget(self.btn_perguntar)
+        
+        self.btn_chutar = QPushButton("TENTAR ADIVINHAR (Selecione no Grid)")
+        self.btn_chutar.setStyleSheet("background-color: #8B5CF6; border-radius: 12px; height: 35px; font-size: 13px;")
+        self.btn_chutar.clicked.connect(self.jogador_tenta_adivinhar)
+        layout_jog.addWidget(self.btn_chutar)
+        
+        panel_layout.addWidget(self.painel_jogador)
+        self.atualizar_valores_combo()
+        
         body_splitter.addWidget(panel_container)
-        body_splitter.setSizes([850, 450]) # Tamanhos iniciais proporcionais
+        body_splitter.setSizes([850, 450])
         
         main_layout.addWidget(body_splitter, stretch=1)
 
@@ -407,11 +484,29 @@ class CaraACaraGUI(QMainWindow):
                    f"Cor: {p['cor'].title()}</span>"
             self.lbl_info_alvo.setText(info)
             self.btn_submit.setEnabled(True)
+        elif self.estado_interface == "INFERENCIA":
+            idx = self.cards_ui.index(card_component)
+            if self.cartas_baixadas[idx]:
+                return
+                
+            if self.card_selecionado_temp:
+                self.card_selecionado_temp.setProperty("selecionado", "false")
+                self.card_selecionado_temp.style().unpolish(self.card_selecionado_temp)
+                self.card_selecionado_temp.style().polish(self.card_selecionado_temp)
+            
+            self.card_selecionado_temp = card_component
+            card_component.setProperty("selecionado", "true")
+            card_component.style().unpolish(card_component)
+            card_component.style().polish(card_component)
+            
+            p = card_component.pokemon
+            self.escrever_log(f"Selecionado no tabuleiro: {p['nome'].upper()} (Pronto para chutar)", "info")
 
     def confirmar_alvo_tabuleiro(self):
         if not self.card_selecionado_temp: return
         
         self.secreto_jogador = self.card_selecionado_temp.pokemon
+        self.secreto_ia = random.choice(self.pokemons)
         self.estado_interface = "INFERENCIA"
         
         self.card_selecionado_temp.setProperty("selecionado", "false")
@@ -420,7 +515,7 @@ class CaraACaraGUI(QMainWindow):
         
         p = self.secreto_jogador
         
-        info = f"<span style='color:#059669; font-size:11px; font-weight:bold;'>ALVO CONFIRMADO</span><br><br>" \
+        info = f"<span style='color:#059669; font-size:11px; font-weight:bold;'>SEU POKÉMON</span><br><br>" \
                f"<b style='color:#0F172A; font-size:15px;'>{p['nome'].upper()}</b><br>" \
                f"<span style='color:#334155; font-size:12px;'>" \
                f"Tipo: {p['tipo'].title()}<br>" \
@@ -431,30 +526,71 @@ class CaraACaraGUI(QMainWindow):
         self.lbl_info_alvo.setText(info)
         
         self.btn_submit.hide()
+        
+        self.escrever_log(f"Seu Pokémon confirmado: {p['nome'].upper()}", "sucesso")
+        self.escrever_log("A IA escolheu o Pokémon secreto dela! Que vença o melhor.", "alerta")
+        self.escrever_log("-----------------------------", "info")
+        
+        self.iniciar_turno_ia()
+
+    def atualizar_valores_combo(self):
+        cat = self.cb_categoria.currentText()
+        valores = sorted(list(set(str(p[cat]) for p in self.pokemons)))
+        self.cb_valor.clear()
+        self.cb_valor.addItems(valores)
+
+    def iniciar_turno_ia(self):
+        self.painel_jogador.hide()
         self.btn_sim.show()
         self.btn_nao.show()
         
-        self.escrever_log(f"Pokémon confirmado: {p['nome'].upper()}", "sucesso")
-        self.escrever_log("O sistema fará as premissas. Avalie com SIM ou NÃO.", "info")
-        self.escrever_log("-----------------------------", "info")
-        
-        self.avancar_motor()
+        self.fato_atual, texto = self.motor.obter_proxima_pergunta()
+        if self.fato_atual:
+            self.escrever_log(texto, "pergunta")
+        else:
+            self.escrever_log("A IA não possui mais perguntas na base de conhecimento.", "info")
+            self.iniciar_turno_jogador()
 
     def processar_resposta(self, afirmativa):
         if not self.fato_atual: return
         
         resp_str = "SIM" if afirmativa else "NÃO"
-        self.escrever_log(f"Resposta Sinalizada: {resp_str}", "usuario")
-        self.escrever_log("-----------------------------", "info")
+        self.escrever_log(f"Sua resposta para a IA: {resp_str}", "usuario")
         
         self.motor.registrar_resposta(self.fato_atual, afirmativa)
         
-        atributo, valor = self.fato_atual.split("_", 1)
+        if self.motor.diagnosticos:
+            diag = self.motor.diagnosticos[0]
+            self.escrever_log(f"A IA VENCEU O JOGO!", "erro")
+            self.escrever_log(f"{diag}", "erro")
+            self.finalizar_jogo()
+        else:
+            self.iniciar_turno_jogador()
+
+    def iniciar_turno_jogador(self):
+        self.escrever_log("-----------------------------", "info")
+        self.escrever_log("SUA VEZ! Faça uma pergunta ou tente adivinhar.", "alerta")
+        self.btn_sim.hide()
+        self.btn_nao.hide()
+        self.painel_jogador.show()
+
+    def jogador_pergunta_ia(self):
+        cat = self.cb_categoria.currentText()
+        val = self.cb_valor.currentText()
+        self.escrever_log(f"Você: O Pokémon da IA tem {cat} = {val}?", "usuario")
+        
+        valor_real = str(self.secreto_ia[cat])
+        afirmativa = (valor_real.lower() == val.lower())
+        
+        resp_ia = "SIM!" if afirmativa else "NÃO!"
+        cor_log = "sucesso" if afirmativa else "erro"
+        self.escrever_log(f"IA: {resp_ia}", cor_log)
+        
+        # Mecanismo que derruba automaticamente as cartas no seu tabuleiro visual
         for i, card in enumerate(self.cards_ui):
             if not self.cartas_baixadas[i]:
-                val_carta = str(card.pokemon[atributo]).replace("-", "").replace("_", "").replace(" ", "").lower()
-                val_pergunta = valor.replace("-", "").replace("_", "").replace(" ", "").lower()
-                match = (val_carta == val_pergunta)
+                val_carta = str(card.pokemon[cat]).lower()
+                match = (val_carta == val.lower())
                 
                 if match != afirmativa:
                     self.cartas_baixadas[i] = True
@@ -463,29 +599,31 @@ class CaraACaraGUI(QMainWindow):
                     card.setGraphicsEffect(efeito)
                     card.setStyleSheet("border: 2px solid #0B1120;")
                     
-        self.avancar_motor()
+        self.escrever_log("-----------------------------", "info")
+        self.iniciar_turno_ia()
 
-    def avancar_motor(self):
-        if self.motor.diagnosticos:
-            diag = self.motor.diagnosticos[0]
-            self.escrever_log(f"DIAGNÓSTICO CONCLUÍDO!", "sucesso")
-            self.escrever_log(f"{diag}", "sucesso")
-            self.btn_sim.hide()
-            self.btn_nao.hide()
-            self.btn_reiniciar.show()
-            self.parar_leds()
+    def jogador_tenta_adivinhar(self):
+        if not self.card_selecionado_temp or self.estado_interface != "INFERENCIA":
+            self.escrever_log("Selecione uma carta ativa no tabuleiro para dar o palpite!", "alerta")
             return
-
-        self.fato_atual, texto = self.motor.obter_proxima_pergunta()
-        if self.fato_atual:
-            self.escrever_log(texto, "pergunta")
-        else:
-            self.escrever_log("Base esgotada sem conclusão. Tente Novamente.", "erro")
-            self.btn_sim.hide()
-            self.btn_nao.hide()
-            self.btn_reiniciar.show()
-            self.parar_leds()
             
+        chute = self.card_selecionado_temp.pokemon
+        self.escrever_log(f"Você: O seu Pokémon secreto é o {chute['nome'].upper()}?", "usuario")
+        
+        if chute['id'] == self.secreto_ia['id']:
+            self.escrever_log("IA: INCRÍVEL! VOCÊ ACERTOU! PARABÉNS, VOCÊ VENCEU!", "sucesso")
+        else:
+            self.escrever_log(f"IA: ERRADO! O meu Pokémon secreto era o {self.secreto_ia['nome'].upper()}. EU VENCI!", "erro")
+            
+        self.finalizar_jogo()
+
+    def finalizar_jogo(self):
+        self.btn_sim.hide()
+        self.btn_nao.hide()
+        self.painel_jogador.hide()
+        self.btn_reiniciar.show()
+        self.parar_leds()
+
     def parar_leds(self):
         self.timer_lente.stop()
         self.timer_red.stop()
