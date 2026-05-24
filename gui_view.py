@@ -3,9 +3,8 @@ import random
 import requests
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QGridLayout, QLabel, QPushButton, QTextEdit, 
-                             QFrame, QGraphicsOpacityEffect, QGraphicsDropShadowEffect,
-                             QSplitter, QComboBox)
-from PyQt6.QtGui import QPixmap, QFont, QColor, QTextCursor
+                             QFrame, QGraphicsOpacityEffect, QSplitter)
+from PyQt6.QtGui import QPixmap, QFont, QTextCursor
 from PyQt6.QtCore import Qt, QTimer
 
 TYPE_COLORS = {
@@ -43,19 +42,15 @@ STYLESHEET = """
     
     QLabel { color: #F8FAFC; font-family: Consolas, "Courier New", monospace; } 
     
-    /* Painel Direito (Coluna Inteira Vermelha) */
+    /* Painel Direito */
     QFrame#Panel { background-color: #DC0A2D; border-left: 4px solid #991B1B; }
     
     QLabel#TituloPanel { color: #FFFFFF; font-family: Arial; font-weight: bold; font-size: 18px; }
     QLabel#SubTituloPanel { color: #FCA5A5; font-family: Arial; font-size: 11px; font-weight: bold; }
     QLabel#LblTerm { color: #FFFFFF; font-family: Arial; font-weight: bold; font-size: 12px; }
     
-    /* HUD Alvo (Tela Branca da Pokédex) */
-    QFrame#HudAlvo { 
-        background-color: #F8FAFC; 
-        border-radius: 12px; 
-        border: 4px solid #CBD5E1; 
-    }
+    /* HUD Alvo */
+    QFrame#HudAlvo { background-color: #F8FAFC; border-radius: 12px; border: 4px solid #CBD5E1; }
     
     /* Terminal */
     QTextEdit { 
@@ -63,7 +58,7 @@ STYLESHEET = """
         border-radius: 12px; padding: 15px; font-size: 13px; line-height: 1.5;
     }
     
-    /* Splitter (Divisória Redimensionável) */
+    /* Splitter */
     QSplitter::handle:horizontal { background-color: #0B1120; width: 6px; }
     QSplitter::handle:horizontal:hover { background-color: #3B82F6; }
 
@@ -73,6 +68,7 @@ STYLESHEET = """
     QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { border: none; background: none; height: 0px; }
     QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }
 
+    /* Botões Padrões */
     QPushButton { border-radius: 25px; font-weight: bold; font-size: 16px; color: white; border: none; }
     QPushButton#BtnSim { background-color: #10B981; }
     QPushButton#BtnSim:hover { background-color: #059669; }
@@ -86,45 +82,29 @@ STYLESHEET = """
     QPushButton#BtnReiniciar { background-color: #3B82F6; border-radius: 12px; }
     QPushButton#BtnReiniciar:hover { background-color: #2563EB; }
 
-    QComboBox { 
-        background-color: #111827; 
-        color: #E2E8F0; 
-        border: 2px solid #1E293B; 
-        border-radius: 8px; 
-        padding: 5px 15px; 
-        min-height: 30px; 
+    /* Tags Interativas (Botões de Pergunta do Jogador) */
+    QPushButton.TagBtn {
+        background-color: #1E293B;
+        color: #94A3B8;
+        border: 2px solid #0F172A;
+        border-radius: 8px;
+        padding: 5px;
+        font-size: 11px;
         font-family: Consolas;
-        font-size: 13px;
         font-weight: bold;
     }
-    
-    QComboBox::drop-down {
-        border: none;
-        width: 30px;
+    QPushButton.TagBtn:hover {
+        border: 2px solid #3B82F6;
     }
-    
-    QComboBox::down-arrow {
-        image: none; 
-    }
-
-    /* Remove o border-radius para matar o "troço branco" do fundo da janela */
-    QComboBox QAbstractItemView {
-        background-color: #0F172A; 
-        color: #E2E8F0;
-        border: 2px solid #1E293B; 
-        outline: none; 
-    }
-
-    /* Espaçamento e respiro limpo para as opções */
-    QComboBox QAbstractItemView::item {
-        padding: 8px 10px;
-        min-height: 25px;
-    }
-
-    /* Cor de destaque moderna quando o mouse passa por cima */
-    QComboBox QAbstractItemView::item:selected {
-        background-color: #3B82F6; 
+    QPushButton.TagBtn:checked {
+        background-color: #3B82F6;
         color: #FFFFFF;
+        border: 2px solid #93C5FD;
+    }
+    QPushButton.TagBtn:disabled {
+        background-color: #0F172A;
+        color: #334155;
+        border: 2px solid #0F172A;
     }
 """
 
@@ -318,7 +298,7 @@ class CaraACaraGUI(QMainWindow):
         wrapper_layout.addWidget(self.grid_container)
         body_splitter.addWidget(grid_wrapper)
         
-        # 2. Container do Painel Direito (Coluna Inteira Vermelha)
+        # 2. Container do Painel Direito
         panel_container = QFrame()
         panel_container.setObjectName("Panel")
         panel_container.setMinimumWidth(350)
@@ -398,23 +378,36 @@ class CaraACaraGUI(QMainWindow):
         layout_jog = QVBoxLayout(self.painel_jogador)
         layout_jog.setSpacing(8)
         
-        lbl_sua_vez = QLabel("SUA VEZ: FAÇA UMA PERGUNTA")
+        lbl_sua_vez = QLabel("SUA VEZ: MONTE SUA PERGUNTA")
         lbl_sua_vez.setStyleSheet("color: #38BDF8; font-weight: bold; font-size: 12px;")
         layout_jog.addWidget(lbl_sua_vez)
         
-        row_perg = QHBoxLayout()
-        self.cb_categoria = QComboBox()
-        self.cb_categoria.addItems(["tipo", "cor", "formato", "habitat", "lendario"])
+        # Variáveis de Estado para as Tags
+        self.categoria_selecionada = None
+        self.valor_selecionado = None
+        self.botoes_categorias = []
+        self.botoes_valores = []
         
-        self.cb_valor = QComboBox()
-        self.cb_categoria.currentTextChanged.connect(self.atualizar_valores_combo)
+        # 1. Linha de Categorias
+        row_categorias = QHBoxLayout()
+        for cat in ["tipo", "cor", "formato", "habitat", "lendario"]:
+            btn = QPushButton(cat.upper())
+            btn.setProperty("class", "TagBtn")
+            btn.setCheckable(True)
+            btn.clicked.connect(lambda checked, c=cat, b=btn: self.selecionar_categoria(c, b))
+            row_categorias.addWidget(btn)
+            self.botoes_categorias.append(btn)
+        layout_jog.addLayout(row_categorias)
         
-        row_perg.addWidget(self.cb_categoria)
-        row_perg.addWidget(self.cb_valor)
-        layout_jog.addLayout(row_perg)
+        # 2. Grid de Valores Dinâmicos
+        self.container_valores = QWidget()
+        self.layout_valores = QGridLayout(self.container_valores)
+        self.layout_valores.setContentsMargins(0, 5, 0, 15)
+        layout_jog.addWidget(self.container_valores)
         
         self.btn_perguntar = QPushButton("PERGUNTAR À IA")
         self.btn_perguntar.setStyleSheet("background-color: #3B82F6; border-radius: 12px; height: 35px; font-size: 13px;")
+        self.btn_perguntar.setEnabled(False) 
         self.btn_perguntar.clicked.connect(self.jogador_pergunta_ia)
         layout_jog.addWidget(self.btn_perguntar)
         
@@ -424,7 +417,6 @@ class CaraACaraGUI(QMainWindow):
         layout_jog.addWidget(self.btn_chutar)
         
         panel_layout.addWidget(self.painel_jogador)
-        self.atualizar_valores_combo()
         
         body_splitter.addWidget(panel_container)
         body_splitter.setSizes([850, 450])
@@ -484,6 +476,7 @@ class CaraACaraGUI(QMainWindow):
                    f"Cor: {p['cor'].title()}</span>"
             self.lbl_info_alvo.setText(info)
             self.btn_submit.setEnabled(True)
+            
         elif self.estado_interface == "INFERENCIA":
             idx = self.cards_ui.index(card_component)
             if self.cartas_baixadas[idx]:
@@ -533,11 +526,45 @@ class CaraACaraGUI(QMainWindow):
         
         self.iniciar_turno_ia()
 
-    def atualizar_valores_combo(self):
-        cat = self.cb_categoria.currentText()
-        valores = sorted(list(set(str(p[cat]) for p in self.pokemons)))
-        self.cb_valor.clear()
-        self.cb_valor.addItems(valores)
+    def selecionar_categoria(self, categoria, btn_clicado):
+        for btn in self.botoes_categorias:
+            if btn != btn_clicado:
+                btn.setChecked(False)
+        
+        self.categoria_selecionada = categoria
+        self.valor_selecionado = None
+        self.btn_perguntar.setEnabled(False)
+        self.atualizar_grid_valores(categoria)
+
+    def atualizar_grid_valores(self, categoria):
+        for i in reversed(range(self.layout_valores.count())): 
+            widget = self.layout_valores.itemAt(i).widget()
+            if widget:
+                widget.setParent(None)
+                
+        self.botoes_valores = []
+        if not categoria: return
+        
+        valores = sorted(list(set(str(p[categoria]) for p in self.pokemons)))
+        
+        for i, val in enumerate(valores):
+            btn = QPushButton(val.upper())
+            btn.setProperty("class", "TagBtn")
+            btn.setCheckable(True)
+            btn.clicked.connect(lambda checked, v=val, b=btn: self.selecionar_valor(v, b))
+            
+            linha = i // 3
+            coluna = i % 3
+            self.layout_valores.addWidget(btn, linha, coluna)
+            self.botoes_valores.append(btn)
+
+    def selecionar_valor(self, valor, btn_clicado):
+        for btn in self.botoes_valores:
+            if btn != btn_clicado:
+                btn.setChecked(False)
+                
+        self.valor_selecionado = valor
+        self.btn_perguntar.setEnabled(True)
 
     def iniciar_turno_ia(self):
         self.painel_jogador.hide()
@@ -575,8 +602,11 @@ class CaraACaraGUI(QMainWindow):
         self.painel_jogador.show()
 
     def jogador_pergunta_ia(self):
-        cat = self.cb_categoria.currentText()
-        val = self.cb_valor.currentText()
+        cat = self.categoria_selecionada
+        val = self.valor_selecionado
+        
+        if not cat or not val: return
+        
         self.escrever_log(f"Você: O Pokémon da IA tem {cat} = {val}?", "usuario")
         
         valor_real = str(self.secreto_ia[cat])
@@ -586,7 +616,6 @@ class CaraACaraGUI(QMainWindow):
         cor_log = "sucesso" if afirmativa else "erro"
         self.escrever_log(f"IA: {resp_ia}", cor_log)
         
-        # Mecanismo que derruba automaticamente as cartas no seu tabuleiro visual
         for i, card in enumerate(self.cards_ui):
             if not self.cartas_baixadas[i]:
                 val_carta = str(card.pokemon[cat]).lower()
@@ -600,6 +629,11 @@ class CaraACaraGUI(QMainWindow):
                     card.setStyleSheet("border: 2px solid #0B1120;")
                     
         self.escrever_log("-----------------------------", "info")
+        
+        for btn in self.botoes_categorias: btn.setChecked(False)
+        self.atualizar_grid_valores(None) 
+        self.btn_perguntar.setEnabled(False)
+        
         self.iniciar_turno_ia()
 
     def jogador_tenta_adivinhar(self):
