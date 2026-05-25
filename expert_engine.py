@@ -28,10 +28,17 @@ class MotorInferenciaEventDriven:
         # Armazena diagnósticos alcançados pela inferência
         self.diagnosticos = []
         
+        # NOVO: Dificuldade do Sistema (Padrão: normal)
+        self.dificuldade = "normal"
+        
         # AGENDA: Cria fila de perguntas embaralhada
         # Embaralhamento evita viés posicional dos cartões do tabuleiro
         self.fila_perguntas = list(self.perguntas.items())
         random.shuffle(self.fila_perguntas)
+
+    def set_dificuldade(self, dif):
+        """Define a dificuldade ('normal' ou 'hard')"""
+        self.dificuldade = dif
 
     def _regras_viaveis(self):
         # FILTRAGEM DE REGRAS: Retorna apenas regras ainda aplicáveis
@@ -54,32 +61,54 @@ class MotorInferenciaEventDriven:
         if total_regras_ativas == 0 or self.diagnosticos:
             return None, None
 
-        # 2. Mapeia a frequência de cada premissa não respondida nas regras ativas
-        frequencia_premissas = {}
-        for regra in regras_ativas:
-            for premissa in regra['se']:
-                # Só contabiliza se o usuário ainda não respondeu sobre isso
-                if premissa not in self.fatos and premissa not in self.fatos_negados:
-                    frequencia_premissas[premissa] = frequencia_premissas.get(premissa, 0) + 1
+        # ---------------------------------------------------------
+        # LÓGICA MODO DIFÍCIL (Hard): Heurística de Partição Binária
+        # ---------------------------------------------------------
+        if self.dificuldade == "hard":
+            # 2. Mapeia a frequência de cada premissa não respondida nas regras ativas
+            frequencia_premissas = {}
+            for regra in regras_ativas:
+                for premissa in regra['se']:
+                    # Só contabiliza se o usuário ainda não respondeu sobre isso
+                    if premissa not in self.fatos and premissa not in self.fatos_negados:
+                        frequencia_premissas[premissa] = frequencia_premissas.get(premissa, 0) + 1
 
-        # Se não sobraram premissas válidas
-        if not frequencia_premissas:
-            return None, None
+            # Se não sobraram premissas válidas
+            if not frequencia_premissas:
+                return None, None
 
-        # 3. Calcula o Score (Heurística de Partição Binária)
-        melhor_pergunta = None
-        melhor_score = -1
+            # 3. Calcula o Score (Heurística de Partição Binária)
+            melhor_pergunta = None
+            melhor_score = -1
 
-        for premissa, k in frequencia_premissas.items():
-            # A fórmula k * (N - k) maximiza a divisão do conjunto ao meio
-            score = k * (total_regras_ativas - k)
+            for premissa, k in frequencia_premissas.items():
+                # A fórmula k * (N - k) maximiza a divisão do conjunto ao meio
+                score = k * (total_regras_ativas - k)
+                
+                if score > melhor_score:
+                    melhor_score = score
+                    melhor_pergunta = premissa
+
+            # Retorna a chave e o texto da pergunta com maior poder de corte
+            return melhor_pergunta, self.perguntas[melhor_pergunta]
+
+        # ---------------------------------------------------------
+        # LÓGICA MODO NORMAL: Sequencial/Aleatório (Menos otimizado)
+        # ---------------------------------------------------------
+        else:
+            # Pega todas as premissas que ainda fazem parte das hipóteses viáveis
+            premissas_ativas = set()
+            for regra in regras_ativas:
+                for premissa in regra['se']:
+                    premissas_ativas.add(premissa)
             
-            if score > melhor_score:
-                melhor_score = score
-                melhor_pergunta = premissa
-
-        # Retorna a chave e o texto da pergunta com maior poder de corte
-        return melhor_pergunta, self.perguntas[melhor_pergunta]
+            # Percorre a fila embaralhada e pega a primeira que for útil
+            for premissa, texto in self.fila_perguntas:
+                if premissa not in self.fatos and premissa not in self.fatos_negados:
+                    if premissa in premissas_ativas:
+                        return premissa, texto
+                        
+            return None, None
 
     def registrar_resposta(self, fato, resposta_afirmativa):
         # PROCESSAMENTO DE RESPOSTA DO USUÁRIO

@@ -81,6 +81,10 @@ STYLESHEET = """
     
     QPushButton#BtnReiniciar { background-color: #3B82F6; border-radius: 12px; }
     QPushButton#BtnReiniciar:hover { background-color: #2563EB; }
+    
+    /* Botão Toggle Dificuldade */
+    QPushButton#BtnDificuldade { background-color: #64748B; color: #FFFFFF; border-radius: 12px; font-weight: bold; font-size: 14px; }
+    QPushButton#BtnDificuldade:hover { opacity: 0.8; }
 
     /* Painel Embutido de Valores Dinâmicos */
     QFrame#ContainerValores {
@@ -208,7 +212,7 @@ class CaraACaraGUI(QMainWindow):
         self.show()
         
         self.escrever_log("Pokédex iniciada e pronta para uso.", "sistema")
-        self.escrever_log("Selecione o seu Pokémon secreto no tabuleiro e confirme.", "alerta")
+        self.escrever_log("Selecione a Dificuldade e o seu Pokémon secreto.", "alerta")
 
     def animar_lente(self):
         lente = self.findChild(QFrame, "LenteAzul")
@@ -362,6 +366,13 @@ class CaraACaraGUI(QMainWindow):
         self.btn_nao.clicked.connect(lambda: self.processar_resposta(False))
         self.btn_nao.hide() 
         
+        # NOVO: Botão de Alternar Dificuldade
+        self.btn_dificuldade = QPushButton("DIFICULDADE: NORMAL")
+        self.btn_dificuldade.setObjectName("BtnDificuldade")
+        self.btn_dificuldade.setFixedHeight(40)
+        self.btn_dificuldade.clicked.connect(self.alternar_dificuldade)
+        panel_layout.addWidget(self.btn_dificuldade)
+        
         self.btn_submit = QPushButton("CONFIRMAR ALVO")
         self.btn_submit.setObjectName("BtnSubmit")
         self.btn_submit.setFixedHeight(50)
@@ -435,6 +446,16 @@ class CaraACaraGUI(QMainWindow):
         
         main_layout.addWidget(body_splitter, stretch=1)
 
+    def alternar_dificuldade(self):
+        if self.motor.dificuldade == "normal":
+            self.motor.set_dificuldade("hard")
+            self.btn_dificuldade.setText("DIFICULDADE: DIFÍCIL (Hard)")
+            self.btn_dificuldade.setStyleSheet("background-color: #991B1B;")
+        else:
+            self.motor.set_dificuldade("normal")
+            self.btn_dificuldade.setText("DIFICULDADE: NORMAL")
+            self.btn_dificuldade.setStyleSheet("background-color: #64748B;")
+
     def baixar_imagem(self, url):
         try:
             req = requests.get(url)
@@ -452,16 +473,15 @@ class CaraACaraGUI(QMainWindow):
             "sucesso": "#4ADE80",  
             "erro": "#EF4444",     
             "info": "#475569",
-            "ia": "#3B82F6"      # <-- NOVA COR: Azul Vibrante
+            "ia": "#3B82F6"      
         }
         
         prefixos = {
             "sistema": "[SYS]", "pergunta": "[S.E.]", "usuario": "[I/O]", 
             "alerta": "[WARN]", "sucesso": "[OK]", "erro": "[ERR]", "info": ">>>",
-            "ia": "[IA]"         # <-- NOVO PREFIXO
+            "ia": "[IA]"         
         }
         
-        # Adicionei "ia" aqui para que as falas dela fiquem em negrito
         negrito = "font-weight: bold;" if tipo in ["sucesso", "erro", "alerta", "ia"] else "font-weight: normal;"
         
         cor = cores.get(tipo, "#FFFFFF")
@@ -533,9 +553,12 @@ class CaraACaraGUI(QMainWindow):
                f"Lendário: {p['lendario'].title()}</span>"
         self.lbl_info_alvo.setText(info)
         
+        # Oculta o botão de confirmar e de trocar dificuldade
         self.btn_submit.hide()
+        self.btn_dificuldade.hide()
         
         self.escrever_log(f"Seu Pokémon confirmado: {p['nome'].upper()}", "sucesso")
+        self.escrever_log(f"Modo Selecionado: {self.motor.dificuldade.upper()}", "info")
         self.escrever_log("A IA escolheu o Pokémon secreto dela! Que vença o melhor.", "alerta")
         
         self.iniciar_turno_ia()
@@ -582,6 +605,16 @@ class CaraACaraGUI(QMainWindow):
 
     def iniciar_turno_ia(self):
         self.painel_jogador.hide()
+        
+        # VERIFICAÇÃO DE VITÓRIA DA IA POSTERGADA
+        # A IA só anuncia que sabe a resposta na VEZ DELA, e não enquanto processa sua resposta.
+        if self.motor.diagnosticos:
+            diag = self.motor.diagnosticos[0]
+            self.escrever_log("Já sei qual é o seu Pokémon!", "ia")
+            self.escrever_log(f"A IA VENCEU O JOGO! {diag}", "ia")
+            self.finalizar_jogo()
+            return
+            
         self.btn_sim.show()
         self.btn_nao.show()
         
@@ -600,13 +633,9 @@ class CaraACaraGUI(QMainWindow):
         
         self.motor.registrar_resposta(self.fato_atual, afirmativa)
         
-        if self.motor.diagnosticos:
-            diag = self.motor.diagnosticos[0]
-            self.escrever_log(f"A IA VENCEU O JOGO!", "ia")
-            self.escrever_log(f"{diag}", "ia")
-            self.finalizar_jogo()
-        else:
-            self.iniciar_turno_jogador()
+        # A IA não analisa a vitória aqui. Ela sempre devolve o turno pro jogador.
+        # Mesmo que já saiba a resposta por eliminação, ela aguarda o turno dela para falar!
+        self.iniciar_turno_jogador()
 
     def iniciar_turno_jogador(self):
         self.escrever_log("SUA VEZ! Faça uma pergunta ou tente adivinhar.", "alerta")
@@ -640,7 +669,6 @@ class CaraACaraGUI(QMainWindow):
                     card.setGraphicsEffect(efeito)
                     card.setStyleSheet("border: 2px solid #0B1120;")
                     
-        
         for btn in self.botoes_categorias: btn.setChecked(False)
         self.atualizar_grid_valores(None) 
         self.btn_perguntar.setEnabled(False)
