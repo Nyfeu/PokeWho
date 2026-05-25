@@ -27,9 +27,15 @@ class PokeApiClient:
                 url_img = resp_pk['sprites']['other']['official-artwork']['front_default']
                 
                 # Garante que os 12 Pokémons sejam distinguíveis pela IA
+                # Cria uma assinatura única baseada em atributos que a IA pode usar para diferenciação
                 assinatura = (tipo, cor, formato, habitat, is_legendary)
+                
+                # Verifica se essa combinação de atributos já foi vista
+                # Apenas Pokémons com assinaturas únicas são adicionados
                 if assinatura not in assinaturas_vistas:
+                    # Adiciona a assinatura ao conjunto para evitar duplicatas
                     assinaturas_vistas.add(assinatura)
+                    # Apenas persiste Pokémons com características distintas
                     pokemons.append({
                         "id": poke_id, "nome": nome, "tipo": tipo,
                         "cor": cor, "formato": formato.replace("-", " "),
