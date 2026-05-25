@@ -46,32 +46,40 @@ class MotorInferenciaEventDriven:
         return viaveis
 
     def obter_proxima_pergunta(self):
-        # SELEÇÃO INTELIGENTE DE PERGUNTAS
-        # Estratégia: Fazer perguntas que afetam regras ativas
-        
-        # 1. Identifica quais regras ainda podem ser aplicadas
+        # 1. Identifica o estado atual do sistema
         regras_ativas = self._regras_viaveis()
+        total_regras_ativas = len(regras_ativas)
         
-        # 2. Extrai todas as premissas das regras ativas
-        # Essas premissas são "úteis" - responder sobre elas pode inferir conclusões
-        premissas_uteis = set()
-        for r in regras_ativas:
-            premissas_uteis.update(r['se'])
+        # Se não há regras ou se já deduzimos algo, encerra a busca
+        if total_regras_ativas == 0 or self.diagnosticos:
+            return None, None
 
-        # 3. Busca próxima pergunta sobre um fato útil que ainda não foi respondido
-        while self.fila_perguntas and not self.diagnosticos:
-            fato, texto = self.fila_perguntas.pop(0)
+        # 2. Mapeia a frequência de cada premissa não respondida nas regras ativas
+        frequencia_premissas = {}
+        for regra in regras_ativas:
+            for premissa in regra['se']:
+                # Só contabiliza se o usuário ainda não respondeu sobre isso
+                if premissa not in self.fatos and premissa not in self.fatos_negados:
+                    frequencia_premissas[premissa] = frequencia_premissas.get(premissa, 0) + 1
+
+        # Se não sobraram premissas válidas
+        if not frequencia_premissas:
+            return None, None
+
+        # 3. Calcula o Score (Heurística de Partição Binária)
+        melhor_pergunta = None
+        melhor_score = -1
+
+        for premissa, k in frequencia_premissas.items():
+            # A fórmula k * (N - k) maximiza a divisão do conjunto ao meio
+            score = k * (total_regras_ativas - k)
             
-            # Pula se já foi respondido (positiva ou negativamente)
-            if fato in self.fatos or fato in self.fatos_negados:
-                continue
-            
-            # Prioriza perguntas sobre premissas de regras ativas
-            if fato in premissas_uteis:
-                return fato, texto
-        
-        # Se nenhuma pergunta útil restante, retorna None
-        return None, None
+            if score > melhor_score:
+                melhor_score = score
+                melhor_pergunta = premissa
+
+        # Retorna a chave e o texto da pergunta com maior poder de corte
+        return melhor_pergunta, self.perguntas[melhor_pergunta]
 
     def registrar_resposta(self, fato, resposta_afirmativa):
         # PROCESSAMENTO DE RESPOSTA DO USUÁRIO
